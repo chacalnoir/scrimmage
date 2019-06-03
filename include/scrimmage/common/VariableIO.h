@@ -56,6 +56,7 @@ class VariableIO {
         desired_turn_rate,
         desired_pitch_rate,
         desired_roll_rate,
+        desired_altitude_rate,
         speed,
         throttle,
         elevator,

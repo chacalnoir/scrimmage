@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="http://gtri.gatech.edu"?>
+<params>
+  <library>FixedWing6DOFGlidingControllerPID_plugin</library>
+  <heading_rate_pid>0.2, 0.01, 0.001, 9</heading_rate_pid>
+  <altitude_rate_pid>0.0025, 0.0001, 0.0002, 1</altitude_rate_pid>
+</params>
