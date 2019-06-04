@@ -40,9 +40,6 @@
 #include <iostream>
 #include <limits>
 
-using std::cout;
-using std::endl;
-
 namespace sc = scrimmage;
 
 REGISTER_PLUGIN(scrimmage::Controller,
@@ -57,11 +54,11 @@ FixedWing6DOFGlidingControllerPID::FixedWing6DOFGlidingControllerPID() {
 
 void FixedWing6DOFGlidingControllerPID::init(std::map<std::string, std::string> &params) {
     if (!sc::set_pid_gains(heading_rate_pid_, params["heading_rate_pid"], true)) {
-        cout << "Failed to set FixedWing6DOFGlidingControllerPID heading rate gains" << endl;
+        std::cout << "Failed to set FixedWing6DOFGlidingControllerPID heading rate gains" << std::endl;
     }
 
     if (!sc::set_pid_gains(altitude_rate_pid_, params["altitude_rate_pid"], true)) {
-        cout << "Failed to set FixedWing6DOFGlidingControllerPID altitude rate gains" << endl;
+        std::cout << "Failed to set FixedWing6DOFGlidingControllerPID altitude rate gains" << std::endl;
     }
 
     // Inputs
@@ -73,23 +70,30 @@ void FixedWing6DOFGlidingControllerPID::init(std::map<std::string, std::string> 
     aileron_idx_ = vars_.declare(VariableIO::Type::aileron, VariableIO::Direction::Out);
     rudder_idx_ = vars_.declare(VariableIO::Type::rudder, VariableIO::Direction::Out);
     throttle_idx_ = vars_.declare(VariableIO::Type::throttle, VariableIO::Direction::Out);
+
+    // Set defaults
+    vars_.output(elevator_idx_, 0.0);
+    vars_.output(aileron_idx_, 0.0);
+    vars_.output(rudder_idx_, 0.0);
+    vars_.output(throttle_idx_, 0.0);
 }
 
 bool FixedWing6DOFGlidingControllerPID::step(double t, double dt) {
     heading_rate_pid_.set_setpoint(vars_.input(input_turn_rate_idx_));
     // Technically using yaw rate from the state instead of heading rate, but should work for this.
     double u_heading = heading_rate_pid_.step(dt, state_->ang_vel()(3));
-    double roll_error = u_heading + state_->quat().roll();
 
     altitude_rate_pid_.set_setpoint(vars_.input(input_altitude_rate_idx_));
     double u_alt_rate = altitude_rate_pid_.step(dt, state_->vel()(2));
-    double pitch_error = (-u_alt_rate - state_->quat().pitch());
+
+    std::cout << "Elevator Command: " << u_alt_rate << ", Aileron Command: " <<
+        u_heading << ", Rudder Command: " << 0.0 << ", Throttle Command: " << 0.0 << std::endl;
 
     // Output the controls
-    vars_.output(elevator_idx_, pitch_error);
-    vars_.output(aileron_idx_, roll_error);
-    // TODO: This should be driving sideslip to zero for a coordinated turn, not based off of u_heading
-    vars_.output(rudder_idx_, u_heading);
+    vars_.output(elevator_idx_, u_alt_rate);
+    vars_.output(aileron_idx_, u_heading);
+    // TODO: This should be driving sideslip to zero for a coordinated turn
+    vars_.output(rudder_idx_, 0.0);
     vars_.output(throttle_idx_, 0.0);  // Always 0 for a gliding vehicle
 
     return true;
