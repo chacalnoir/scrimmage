@@ -58,6 +58,7 @@ class FixedWing6DOFGlidingControllerPID : public scrimmage::Controller {
     int elevator_idx_ = 0;
     int aileron_idx_ = 0;
     int rudder_idx_ = 0;
+    int throttle_idx_ = 0;
 };
 }  // namespace controller
 }  // namespace scrimmage

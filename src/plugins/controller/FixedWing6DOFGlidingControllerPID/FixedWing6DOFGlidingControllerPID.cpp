@@ -72,6 +72,7 @@ void FixedWing6DOFGlidingControllerPID::init(std::map<std::string, std::string> 
     elevator_idx_ = vars_.declare(VariableIO::Type::elevator, VariableIO::Direction::Out);
     aileron_idx_ = vars_.declare(VariableIO::Type::aileron, VariableIO::Direction::Out);
     rudder_idx_ = vars_.declare(VariableIO::Type::rudder, VariableIO::Direction::Out);
+    throttle_idx_ = vars_.declare(VariableIO::Type::throttle, VariableIO::Direction::Out);
 }
 
 bool FixedWing6DOFGlidingControllerPID::step(double t, double dt) {
@@ -87,8 +88,9 @@ bool FixedWing6DOFGlidingControllerPID::step(double t, double dt) {
     // Output the controls
     vars_.output(elevator_idx_, pitch_error);
     vars_.output(aileron_idx_, roll_error);
-    // TODO: This should be driving sideslip to zero, not driving off of u_heading
+    // TODO: This should be driving sideslip to zero for a coordinated turn, not based off of u_heading
     vars_.output(rudder_idx_, u_heading);
+    vars_.output(throttle_idx_, 0.0);  // Always 0 for a gliding vehicle
 
     return true;
 }
