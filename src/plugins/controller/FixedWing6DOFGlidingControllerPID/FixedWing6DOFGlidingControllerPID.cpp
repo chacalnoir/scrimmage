@@ -34,7 +34,7 @@
 
 #include <scrimmage/plugin_manager/RegisterPlugin.h>
 #include <scrimmage/entity/Entity.h>
-#include <scrimmage/math/State.h>
+#include <scrimmage/math/Angles.h>
 #include <scrimmage/parse/ParseUtils.h>
 
 #include <iostream>
@@ -50,15 +50,18 @@ namespace scrimmage {
 namespace controller {
 
 FixedWing6DOFGlidingControllerPID::FixedWing6DOFGlidingControllerPID() {
+    // For later rotations
+    Eigen::AngleAxisd aa(M_PI, Eigen::Vector3d::UnitX());
+    rot_180_x_axis_ = Eigen::Quaterniond(aa);
 }
 
 void FixedWing6DOFGlidingControllerPID::init(std::map<std::string, std::string> &params) {
-    if (!sc::set_pid_gains(heading_rate_pid_, params["heading_rate_pid"], true)) {
-        std::cout << "Failed to set FixedWing6DOFGlidingControllerPID heading rate gains" << std::endl;
+    if (!sc::set_pid_gains(pitch_rate_pid_, params["pitch_rate_pid"], true)) {
+        std::cout << "Failed to set FixedWing6DOFGlidingControllerPID pitch rate gains" << std::endl;
     }
 
-    if (!sc::set_pid_gains(altitude_rate_pid_, params["altitude_rate_pid"], true)) {
-        std::cout << "Failed to set FixedWing6DOFGlidingControllerPID altitude rate gains" << std::endl;
+    if (!sc::set_pid_gains(roll_rate_pid_, params["roll_rate_pid"], true)) {
+        std::cout << "Failed to set FixedWing6DOFGlidingControllerPID roll rate gains" << std::endl;
     }
 
     // Inputs
@@ -79,19 +82,37 @@ void FixedWing6DOFGlidingControllerPID::init(std::map<std::string, std::string> 
 }
 
 bool FixedWing6DOFGlidingControllerPID::step(double t, double dt) {
-    heading_rate_pid_.set_setpoint(vars_.input(input_turn_rate_idx_));
-    // Technically using yaw rate from the state instead of heading rate, but should work for this.
-    double u_heading = heading_rate_pid_.step(dt, state_->ang_vel()(3));
+    // Update the quaternion
+    quat_body_ = rot_180_x_axis_ * state_->quat();
+    quat_body_.set(sc::Angles::angle_pi(quat_body_.roll()+M_PI),
+                   quat_body_.pitch(), quat_body_.yaw());
+    quat_body_.normalize();
 
-    altitude_rate_pid_.set_setpoint(vars_.input(input_altitude_rate_idx_));
-    double u_alt_rate = altitude_rate_pid_.step(dt, state_->vel()(2));
+    // Calculate the tracking errors
+    double heading_rate_error = vars_.input(input_turn_rate_idx_) - state_->ang_vel()(3);
+    double glide_slope_rate_error = (sin(vars_.input(input_altitude_rate_idx_) / state_->vel().norm()) -
+        sin(state_->vel()(3) / state_->vel().norm())) / dt;
 
-    std::cout << "Elevator Command: " << u_alt_rate << ", Aileron Command: " <<
-        u_heading << ", Rudder Command: " << 0.0 << ", Throttle Command: " << 0.0 << std::endl;
+    // Calculate the desired roll based on the ratio of heading_rate_error versus glide_slope_rate_error
+    roll_rate_pid_.set_setpoint(atan2(heading_rate_error, glide_slope_rate_error));
+    // Aileron control based on roll rate
+    double u_roll_rate = roll_rate_pid_.step(dt, state_->quat().roll());
+    // Desired pitch rate based on the magnitude of the heading and altitude errors
+    pitch_rate_pid_.set_setpoint(sqrt(heading_rate_error * heading_rate_error +
+        glide_slope_rate_error * glide_slope_rate_error));
+    Eigen::Vector3d local_ang_vel(state_->ang_vel()(0), -state_->ang_vel()(1), -state_->ang_vel()(2));
+    local_ang_vel = quat_body_.rotate_reverse(local_ang_vel);
+    double u_pitch_rate = pitch_rate_pid_.step(dt, local_ang_vel(1));
+
+    
+
+
+    std::cout << "Elevator Command: " << u_pitch_rate << ", Aileron Command: " <<
+        u_roll_rate << ", Rudder Command: " << 0.0 << ", Throttle Command: " << 0.0 << std::endl;
 
     // Output the controls
-    vars_.output(elevator_idx_, u_alt_rate);
-    vars_.output(aileron_idx_, u_heading);
+    vars_.output(elevator_idx_, u_pitch_rate);
+    vars_.output(aileron_idx_, u_roll_rate);
     // TODO: This should be driving sideslip to zero for a coordinated turn
     vars_.output(rudder_idx_, 0.0);
     vars_.output(throttle_idx_, 0.0);  // Always 0 for a gliding vehicle

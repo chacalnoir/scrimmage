@@ -53,7 +53,9 @@ class State {
 
     // Position is in local level coordinate system (East/North/Up)
     Eigen::Vector3d &pos();
+    // Velocity is in local level coordinate system (East/North/Up)
     Eigen::Vector3d &vel();
+    // Angular velocity is in local level coordinate system (East/North/Up)
     Eigen::Vector3d &ang_vel();
     const Eigen::Vector3d &pos() const;
     const Eigen::Vector3d &vel() const;

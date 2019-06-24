@@ -35,6 +35,7 @@
 
 #include <scrimmage/motion/Controller.h>
 #include <scrimmage/common/PID.h>
+#include <scrimmage/math/State.h>
 
 #include <map>
 #include <string>
@@ -49,8 +50,10 @@ class FixedWing6DOFGlidingControllerPID : public scrimmage::Controller {
     bool step(double t, double dt) override;
 
  protected:
-    PID heading_rate_pid_;
-    PID altitude_rate_pid_;
+    PID pitch_rate_pid_;
+    PID roll_rate_pid_;
+    scrimmage::Quaternion quat_body_;
+    Eigen::Quaterniond rot_180_x_axis_;
 
     uint8_t input_altitude_rate_idx_ = 0;
     uint8_t input_turn_rate_idx_ = 0;
